@@ -61,6 +61,12 @@ default to all providers in order defined in ‘webpaste--provider’ list."
   :type 'boolean)
 
 
+(defcustom webpaste-paste-raw-text nil
+  "Ignore all kinds of syntax highlighting by looking at the current major mode."
+  :group 'webpaste
+  :type 'boolean)
+
+
 (defcustom webpaste-open-in-browser nil
   "Open recently created pastes in a browser.
 This uses `browse-url-generic' to open URLs."
@@ -242,13 +248,15 @@ precalculated, and also available both for pre and post request access.")
                         (post-data '()))
                  (cl-pushnew (cons post-field text) post-data)
 
-                 ;; Fetch alist of languages for this provider
-                 (let ((provider-lang-alist (cdr (assoc provider-uri webpaste--provider-lang-alists))))
-                   ;; Fetch language name for this major mode for this provider
-                   (let ((language-name (cdr (assoc major-mode provider-lang-alist))))
-                     (if (and post-lang-field-name language-name)
-                       ;; Append language to the post-data
-                       (cl-pushnew (cons post-lang-field-name language-name) post-data))))
+                 (unless webpaste-paste-raw-text
+                   ;; Fetch alist of languages for this provider
+                   (let ((provider-lang-alist (cdr (assoc provider-uri webpaste--provider-lang-alists))))
+                     ;; Fetch language name for this major mode for this provider
+                     (let ((language-name (cdr (assoc major-mode provider-lang-alist))))
+                       (if (and post-lang-field-name language-name)
+                           ;; Append language to the post-data
+                           (cl-pushnew (cons post-lang-field-name language-name) post-data)))))
+
                  post-data)))
 
 
@@ -329,14 +337,15 @@ Optional params:
                    TEXT contains the data that should be sent.
                    POST-FIELD cointains the name of the field to be sent.
                    POST-DATA contains predefined fields that the provider needs."
-  ;; If we get a separator sent to the function, append it to the list of
-  ;; separators for later use
-  (when lang-uri-separator
-    (cl-pushnew (cons uri lang-uri-separator) webpaste--provider-separators))
+  (unless webpaste-paste-raw-text
+    ;; If we get a separator sent to the function, append it to the list of
+    ;; separators for later use
+    (when lang-uri-separator
+      (cl-pushnew (cons uri lang-uri-separator) webpaste--provider-separators))
 
-  ;; Add pre-calculated list of webpaste lang alists
-  (cl-pushnew (cons uri (webpaste--get-lang-alist-with-overrides lang-overrides))
-              webpaste--provider-lang-alists)
+    ;; Add pre-calculated list of webpaste lang alists
+    (cl-pushnew (cons uri (webpaste--get-lang-alist-with-overrides lang-overrides))
+              webpaste--provider-lang-alists))
 
   (cl-function
    (lambda (text
